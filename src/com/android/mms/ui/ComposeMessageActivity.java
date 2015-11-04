@@ -4231,10 +4231,10 @@ public class ComposeMessageActivity extends Activity
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-            if (s.toString().getBytes().length <= SUBJECT_MAX_LENGTH) {
+            if (s.toString().length() <= SUBJECT_MAX_LENGTH) {
                 mWorkingMessage.setSubject(s, true);
                 updateSendButtonState();
-                if (s.toString().getBytes().length == SUBJECT_MAX_LENGTH
+                if (s.toString().length() == SUBJECT_MAX_LENGTH
                         && before < SUBJECT_MAX_LENGTH) {
                     String toast = getString(R.string.subject_full, SUBJECT_MAX_LENGTH);
                     Toast.makeText(ComposeMessageActivity.this, toast,
@@ -4245,13 +4245,11 @@ public class ComposeMessageActivity extends Activity
 
         @Override
         public void afterTextChanged(Editable s) {
-            if (s.toString().getBytes().length > SUBJECT_MAX_LENGTH) {
-                String subject = s.toString();
+            if (s.toString().length() > SUBJECT_MAX_LENGTH) {
                 String toast = getString(R.string.subject_full, SUBJECT_MAX_LENGTH);
                 Toast.makeText(ComposeMessageActivity.this, toast,
                         Toast.LENGTH_SHORT).show();
-                s.clear();
-                s.append(subject.substring(0, SUBJECT_MAX_LENGTH));
+                s.delete(SUBJECT_MAX_LENGTH - 1, s.length());
             }
         }
     };
@@ -5522,6 +5520,9 @@ public class ComposeMessageActivity extends Activity
             address = number[0];
         }
         String text = msgItem.mBody;
+        if (TextUtils.isEmpty(text)) {
+            return false;
+        }
         long timestamp = msgItem.mDate != 0 ? msgItem.mDate : System.currentTimeMillis();
 
         SmsManager sm = SmsManager.getDefault();
@@ -5712,6 +5713,19 @@ public class ComposeMessageActivity extends Activity
                 MenuItem item = menu.findItem(R.id.copy_to_sim);
                 if (item != null) {
                     item.setVisible(false);
+                }
+            }
+
+            int checkedCount = getListView().getCheckedItemCount();
+            if (checkedCount > 0) { // action mode was restarted
+                updateCheckedStatus(mode, checkedCount);
+                // loop through checked items and update statistics
+                SparseBooleanArray checkedList = getListView().getCheckedItemPositions();
+                for (int i = 0; i < checkedList.size(); i++) {
+                    int position = checkedList.keyAt(i);
+                    boolean isChecked = checkedList.valueAt(i);
+                    updateStatics(position, isChecked);
+                    customMenuVisibility(mode, checkedCount, position, isChecked);
                 }
             }
             return true;
@@ -6128,7 +6142,7 @@ public class ComposeMessageActivity extends Activity
 
         @Override
         public void onItemCheckedStateChanged(ActionMode mode, int position,
-                long id, boolean checked) {
+                                              long id, boolean checked) {
             logMultiChoice("onItemCheckedStateChanged... position=" + position
                     + ", checked=" + checked);
 
@@ -6138,6 +6152,13 @@ public class ComposeMessageActivity extends Activity
             mode.setTitle(getString(R.string.selected_count, mCheckedCount));
 
             mode.getMenu().findItem(R.id.selection_toggle).setTitle(getString(
+                    allItemsSelected() ? R.string.deselected_all : R.string.selected_all));
+        }
+
+        private void updateCheckedStatus(ActionMode actionMode, int checkedCount) {
+            mCheckedCount = checkedCount;
+            actionMode.setTitle(getString(R.string.selected_count, mCheckedCount));
+            actionMode.getMenu().findItem(R.id.selection_toggle).setTitle(getString(
                     allItemsSelected() ? R.string.deselected_all : R.string.selected_all));
         }
 
